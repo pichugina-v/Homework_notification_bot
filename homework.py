@@ -12,6 +12,13 @@ PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
+HOMEWORK_STATUSES = {
+    'rejected': 'К сожалению в работе нашлись ошибки.',
+    'approved': ('Ревьюеру всё понравилось, '
+                 'можно приступать к следующему уроку.'),
+    'reviewing': 'Работа взята в ревью'
+}
+
 logging.basicConfig(
     level=logging.DEBUG,
     filename='homework.log',
@@ -21,11 +28,12 @@ logging.basicConfig(
 
 def parse_homework_status(homework):
     homework_name = homework.get('homework_name')
-    if homework.get('status') == 'rejected':
-        verdict = 'К сожалению в работе нашлись ошибки.'
-    else:
-        verdict = ('Ревьюеру всё понравилось, '
-                   'можно приступать к следующему уроку.')
+    if homework_name is None:
+        logging.error('homework_name не обнаружен')
+    homework_status = homework.get('status')
+    if homework_status is None:
+        logging.error('homework_status не обнаружен')
+    verdict = HOMEWORK_STATUSES[homework_status]
     return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
 
 
@@ -35,20 +43,20 @@ def get_homework_statuses(current_timestamp):
     homework_statuses = requests.get(
         'https://praktikum.yandex.ru/api/user_api/homework_statuses/',
         headers=headers,
-        params=data,
+        params=data
     )
     return homework_statuses.json()
 
 
 def send_message(message, bot_client):
-    logging.info('Message sent')
+    logging.info('Сообщение отправлено')
     return bot_client.send_message(chat_id=CHAT_ID, text=message)
 
 
 def main():
     current_timestamp = int(time.time())
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
-    logging.debug(f'Bot activated, activation time: {current_timestamp}')
+    logging.debug(f'Бот запущен, время запуска: {current_timestamp}')
 
     while True:
         try:
