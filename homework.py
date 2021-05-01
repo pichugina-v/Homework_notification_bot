@@ -50,7 +50,7 @@ def get_homework_statuses(current_timestamp):
         )
         return homework_statuses.json()
     except requests.RequestException as e:
-        logging.error(f'Ошибка запроса: {e.__class__.__name__}: {e}')
+        logging.error(f'Ошибка запроса: {e}', exc_info=True)
         return {}
 
 
