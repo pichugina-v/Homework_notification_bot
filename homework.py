@@ -30,9 +30,11 @@ def parse_homework_status(homework):
     homework_name = homework.get('homework_name')
     if homework_name is None:
         logging.error('homework_name не обнаружен')
+        return 'homework_name не обнаружен'
     homework_status = homework.get('status')
     if homework_status is None:
         logging.error('homework_status не обнаружен')
+        return 'homework_status не обнаружен'
     verdict = HOMEWORK_STATUSES[homework_status]
     return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
 
@@ -40,12 +42,16 @@ def parse_homework_status(homework):
 def get_homework_statuses(current_timestamp):
     headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
     data = {'from_date': current_timestamp}
-    homework_statuses = requests.get(
-        'https://praktikum.yandex.ru/api/user_api/homework_statuses/',
-        headers=headers,
-        params=data
-    )
-    return homework_statuses.json()
+    try:
+        homework_statuses = requests.get(
+            'https://praktikum.yandex.ru/api/user_api/homework_statuses/',
+            headers=headers,
+            params=data
+        )
+        return homework_statuses.json()
+    except requests.RequestException as e:
+        logging.error(f'Ошибка запроса: {e.__class__.__name__}: {e}')
+        return {}
 
 
 def send_message(message, bot_client):
@@ -74,7 +80,7 @@ def main():
         except Exception as e:
             logging.error(e, exc_info=True)
             send_message(
-                f'Бот столкнулся с ошибкой: {e.__class__.__name__}',
+                f'Бот столкнулся с ошибкой {e.__class__.__name__}: {e}',
                 bot_client
             )
             time.sleep(60)
