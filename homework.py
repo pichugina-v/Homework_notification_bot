@@ -1,7 +1,7 @@
+import logging
 import os
 import time
 
-import logging
 import requests
 import telegram
 from dotenv import load_dotenv
@@ -11,58 +11,80 @@ load_dotenv()
 PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+HEADER = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
+PRAKTIKUM_API = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
 
-HOMEWORK_STATUSES = {
+HOMEWORK_VERDICTS = {
     'rejected': 'К сожалению в работе нашлись ошибки.',
-    'approved': ('Ревьюеру всё понравилось, '
-                 'можно приступать к следующему уроку.'),
+    'approved': 'Ревьюеру всё понравилось, '
+                'можно приступать к следующему уроку.',
     'reviewing': 'Работа взята в ревью'
 }
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='homework.log',
-    format='%(asctime)s, %(levelname)s, %(message)s, %(name)s'
-)
+NAME_NOT_FOUND = 'Ключ "homework_name" не найден'
+STATUS_NOT_FOUND = 'Ключ "status" не найден'
+STATUS_ERROR = 'Неизвестный статус домашней работы "{status}"'
+CONNECTION_ERROR = ('При обращении к {api} с параметрами токен - {token}, '
+                    'дата - {date} произошел сбой сети, ошибка: {error}')
+SERVER_ERROR = ('Сервер вернул ошибку на запрос {api} '
+                'с параметрами токен - {token}, дата - {date}, '
+                ' причина ошибки: {error}')
+BOT_ACTIVATION = 'Бот запущен, время запуска: {date}'
+MESSAGE_INFO = 'Отправка сообщения "{message}"'
+VERDICT_INFO = 'У вас проверили работу "{name}"!\n\n{verdict}'
 
 
 def parse_homework_status(homework):
-    homework_name = homework.get('homework_name')
-    if homework_name is None:
-        logging.error('homework_name не обнаружен')
-        return 'homework_name не обнаружен'
-    homework_status = homework.get('status')
-    if homework_status is None:
-        logging.error('homework_status не обнаружен')
-        return 'homework_status не обнаружен'
-    verdict = HOMEWORK_STATUSES[homework_status]
-    return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
+    try:
+        name = homework['homework_name']
+    except KeyError:
+        raise KeyError(NAME_NOT_FOUND)
+    try:
+        status = homework['status']
+    except KeyError:
+        raise KeyError(STATUS_NOT_FOUND)
+    try:
+        verdict = HOMEWORK_VERDICTS[status]
+    except KeyError:
+        raise KeyError(STATUS_ERROR.format(status=status))
+    return VERDICT_INFO.format(name=name, verdict=verdict)
 
 
 def get_homework_statuses(current_timestamp):
-    headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
     data = {'from_date': current_timestamp}
     try:
-        homework_statuses = requests.get(
-            'https://praktikum.yandex.ru/api/user_api/homework_statuses/',
-            headers=headers,
+        response = requests.get(
+            PRAKTIKUM_API,
+            headers=HEADER,
             params=data
         )
-        return homework_statuses.json()
-    except requests.RequestException as e:
-        logging.error(f'Ошибка запроса: {e}', exc_info=True)
-        return {}
+    except requests.RequestException as error:
+        raise requests.RequestException(CONNECTION_ERROR.format(
+            api=PRAKTIKUM_API,
+            token=PRAKTIKUM_TOKEN,
+            date=current_timestamp,
+            error=error
+        ))
+    json_data = response.json()
+    if json_data.get('error'):
+        raise ValueError(SERVER_ERROR.format(
+            api=PRAKTIKUM_API,
+            token=PRAKTIKUM_TOKEN,
+            date=current_timestamp,
+            error=json_data['error']
+        ))
+    return json_data
 
 
 def send_message(message, bot_client):
-    logging.info('Сообщение отправлено')
+    logging.info(MESSAGE_INFO.format(message=message))
     return bot_client.send_message(chat_id=CHAT_ID, text=message)
 
 
 def main():
     current_timestamp = int(time.time())
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
-    logging.debug(f'Бот запущен, время запуска: {current_timestamp}')
+    logging.debug(BOT_ACTIVATION.format(date=current_timestamp))
 
     while True:
         try:
@@ -77,14 +99,15 @@ def main():
                 current_timestamp
             )
             time.sleep(900)
-        except Exception as e:
-            logging.error(e, exc_info=True)
-            send_message(
-                f'Бот столкнулся с ошибкой {e.__class__.__name__}: {e}',
-                bot_client
-            )
+        except Exception as error:
+            logging.error(error, exc_info=True)
             time.sleep(60)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename=__file__ + '.log',
+        format='%(asctime)s, %(levelname)s, %(message)s, %(name)s'
+    )
     main()
