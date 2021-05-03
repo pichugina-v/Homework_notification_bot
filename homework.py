@@ -21,57 +21,47 @@ HOMEWORK_VERDICTS = {
     'reviewing': 'Работа взята в ревью'
 }
 
-NAME_NOT_FOUND = 'Ключ "homework_name" не найден'
-STATUS_NOT_FOUND = 'Ключ "status" не найден'
 STATUS_ERROR = 'Неизвестный статус домашней работы "{status}"'
-CONNECTION_ERROR = ('При обращении к {api} с параметрами токен - {token}, '
-                    'дата - {date} произошел сбой сети, ошибка: {error}')
-SERVER_ERROR = ('Сервер вернул ошибку на запрос {api} '
-                'с параметрами токен - {token}, дата - {date}, '
+CONNECTION_ERROR = ('При обращении к {url} с параметрами {headers}, '
+                    '{params} произошел сбой сети, ошибка: {error}')
+SERVER_ERROR = ('Сервер вернул ошибку на запрос {url} '
+                'с параметрами {headers}, {params}, '
                 ' причина ошибки: {error}')
 BOT_ACTIVATION = 'Бот запущен, время запуска: {date}'
 MESSAGE_INFO = 'Отправка сообщения "{message}"'
 VERDICT_INFO = 'У вас проверили работу "{name}"!\n\n{verdict}'
+LOGGING_INFO = 'Обнаружена ошибка: {error}'
 
 
 def parse_homework_status(homework):
-    try:
-        name = homework['homework_name']
-    except KeyError:
-        raise KeyError(NAME_NOT_FOUND)
-    try:
-        status = homework['status']
-    except KeyError:
-        raise KeyError(STATUS_NOT_FOUND)
-    try:
-        verdict = HOMEWORK_VERDICTS[status]
-    except KeyError:
-        raise KeyError(STATUS_ERROR.format(status=status))
-    return VERDICT_INFO.format(name=name, verdict=verdict)
+    status = homework['status']
+    if status not in HOMEWORK_VERDICTS:
+        raise ValueError(STATUS_ERROR.format(status=status))
+    return VERDICT_INFO.format(
+        name=homework['homework_name'],
+        verdict=HOMEWORK_VERDICTS[status]
+    )
 
 
 def get_homework_statuses(current_timestamp):
     data = {'from_date': current_timestamp}
+    parameters = dict(
+        url=PRAKTIKUM_API,
+        headers=HEADER,
+        params=data
+    )
     try:
-        response = requests.get(
-            PRAKTIKUM_API,
-            headers=HEADER,
-            params=data
-        )
+        response = requests.get(**parameters)
     except requests.RequestException as error:
-        raise requests.RequestException(CONNECTION_ERROR.format(
-            api=PRAKTIKUM_API,
-            token=PRAKTIKUM_TOKEN,
-            date=current_timestamp,
+        raise ConnectionError(CONNECTION_ERROR.format(
+            **parameters,
             error=error
         ))
     json_data = response.json()
-    if json_data.get('error'):
+    if 'error' in json_data or 'code' in json_data:
         raise ValueError(SERVER_ERROR.format(
-            api=PRAKTIKUM_API,
-            token=PRAKTIKUM_TOKEN,
-            date=current_timestamp,
-            error=json_data['error']
+            **parameters,
+            error=json_data.get('error') or json_data.get('code')
         ))
     return json_data
 
@@ -100,7 +90,10 @@ def main():
             )
             time.sleep(900)
         except Exception as error:
-            logging.error(error, exc_info=True)
+            logging.error(
+                LOGGING_INFO.format(error=error),
+                exc_info=True
+            )
             time.sleep(60)
 
 
@@ -108,6 +101,6 @@ if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
         filename=__file__ + '.log',
-        format='%(asctime)s, %(levelname)s, %(message)s, %(name)s'
+        format='%(asctime)s, %(levelname)s, %(name)s, %(message)s'
     )
     main()
