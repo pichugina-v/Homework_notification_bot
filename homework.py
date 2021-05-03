@@ -35,7 +35,7 @@ LOGGING_INFO = 'Обнаружена ошибка: {error}'
 
 def parse_homework_status(homework):
     status = homework['status']
-    if status not in HOMEWORK_VERDICTS:
+    if status not in HOMEWORK_VERDICTS.keys():
         raise ValueError(STATUS_ERROR.format(status=status))
     return VERDICT_INFO.format(
         name=homework['homework_name'],
