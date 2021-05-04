@@ -35,7 +35,7 @@ LOGGING_INFO = 'Обнаружена ошибка: {error}'
 
 def parse_homework_status(homework):
     status = homework['status']
-    if status not in HOMEWORK_VERDICTS.keys():
+    if status not in HOMEWORK_VERDICTS:
         raise ValueError(STATUS_ERROR.format(status=status))
     return VERDICT_INFO.format(
         name=homework['homework_name'],
@@ -44,11 +44,10 @@ def parse_homework_status(homework):
 
 
 def get_homework_statuses(current_timestamp):
-    data = {'from_date': current_timestamp}
     parameters = dict(
         url=PRAKTIKUM_API,
         headers=HEADER,
-        params=data
+        params={'from_date': current_timestamp}
     )
     try:
         response = requests.get(**parameters)
@@ -58,11 +57,13 @@ def get_homework_statuses(current_timestamp):
             error=error
         ))
     json_data = response.json()
-    if 'error' in json_data or 'code' in json_data:
-        raise ValueError(SERVER_ERROR.format(
-            **parameters,
-            error=json_data.get('error') or json_data.get('code')
-        ))
+    error_value = ['error', 'code']
+    for value in error_value:
+        if value in json_data:
+            raise ValueError(SERVER_ERROR.format(
+                **parameters,
+                error=json_data.get(value)
+            ))
     return json_data
 
 
