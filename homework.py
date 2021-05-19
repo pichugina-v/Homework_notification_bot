@@ -5,6 +5,7 @@ import time
 import requests
 import telegram
 from dotenv import load_dotenv
+from telegram.utils.helpers import encode_conversations_to_json
 
 load_dotenv()
 
@@ -49,6 +50,7 @@ def get_homework_statuses(current_timestamp):
         headers=HEADER,
         params={'from_date': current_timestamp}
     )
+    error_values = ['error', 'code']
     try:
         response = requests.get(**parameters)
     except requests.RequestException as error:
@@ -57,8 +59,7 @@ def get_homework_statuses(current_timestamp):
             error=error
         ))
     json_data = response.json()
-    error_value = ['error', 'code']
-    for value in error_value:
+    for value in error_values:
         if value in json_data:
             raise ValueError(SERVER_ERROR.format(
                 **parameters,
@@ -95,6 +96,15 @@ def main():
                 LOGGING_INFO.format(error=error),
                 exc_info=True
             )
+            try:
+                send_message(f'{error.__class__.__name__}: {error}',
+                             bot_client)
+            except Exception as sending_exception:
+                logging.error(
+                    LOGGING_INFO.format(
+                        error=sending_exception,
+                        exc_info=True
+                    ))
             time.sleep(60)
 
 
