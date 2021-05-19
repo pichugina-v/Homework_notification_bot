@@ -73,7 +73,7 @@ def send_message(message, bot_client):
 
 
 def main():
-    current_timestamp = 0
+    current_timestamp = int(time.time())
     bot_client = telegram.Bot(token=TELEGRAM_TOKEN)
     logging.debug(BOT_ACTIVATION.format(date=current_timestamp))
 
@@ -110,7 +110,7 @@ def main():
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
-        # filename=__file__ + '.log',
+        filename=__file__ + '.log',
         format='%(asctime)s, %(levelname)s, %(name)s, %(message)s'
     )
     main()
