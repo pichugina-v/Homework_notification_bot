@@ -5,7 +5,6 @@ import time
 import requests
 import telegram
 from dotenv import load_dotenv
-from telegram.utils.helpers import encode_conversations_to_json
 
 load_dotenv()
 
