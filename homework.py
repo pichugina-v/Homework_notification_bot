@@ -110,7 +110,7 @@ def main():
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
-        filename=__file__ + '.log',
+        # filename=__file__ + '.log',
         format='%(asctime)s, %(levelname)s, %(name)s, %(message)s'
     )
     main()
